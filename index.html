@@ -12,8 +12,8 @@
         .container { max-width: 850px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         .login-screen { text-align: center; padding-top: 100px; }
         h2 { color: var(--dark); border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 30px; }
-        /* 增加圖表容器的空間 */
-        .chart-container { width: 100%; max-width: 700px; margin: 0 auto 30px auto; min-height: 500px; }
+        /* 增加容器高度，給標籤預留伸展台 */
+        .chart-container { width: 100%; max-width: 750px; margin: 0 auto 30px auto; min-height: 550px; }
         .asset-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         .asset-table th { background: #f1f3f5; text-align: left; padding: 12px; }
         .asset-table td { padding: 12px; border-bottom: 1px solid #eee; }
@@ -138,24 +138,25 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: { padding: 80 }, // 外部邊距給予標籤空間
+                layout: { padding: 100 }, // 外部邊距增加到 100，讓字不會擠在一起
                 plugins: {
-                    legend: { display: false }, // 關閉圖例
+                    legend: { display: false },
                     datalabels: {
-                        color: '#2c3e50',
-                        anchor: 'end', // 標籤錨點在扇區末端
-                        align: 'end',  // 標籤顯示在錨點外部
-                        offset: 20,    // 標籤與圓餅圖的距離
-                        display: 'auto', // 自動隱藏重疊標籤
+                        color: '#444',
+                        anchor: 'end',
+                        align: 'end',
+                        offset: 25, // 標籤離圓餅圖更遠
+                        display: 'auto',
                         formatter: (val, ctx) => {
                             const pct = (val / totalSum * 100).toFixed(1);
-                            // 隱藏佔比過小的標籤 (小於 1%)
-                            if (pct < 1) return null;
+                            // 佔比低於 2% 則不顯示標籤，避免重疊（滑鼠移過去依然可看數值）
+                            if (parseFloat(pct) < 2) return null;
                             const label = ctx.chart.data.labels[ctx.dataIndex];
                             return `${label}\n${pct}%`;
                         },
-                        font: { weight: 'bold', size: 12 },
-                        textAlign: 'center'
+                        font: { weight: 'bold', size: 11 },
+                        textAlign: 'center',
+                        padding: 4
                     }
                 }
             }
