@@ -11,7 +11,7 @@
         .container { max-width: 850px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
         .login-screen { text-align: center; padding-top: 100px; }
         h2 { color: var(--dark); border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 30px; }
-        .chart-container { width: 100%; max-width: 350px; margin: 0 auto 30px auto; }
+        .chart-container { width: 100%; max-width: 450px; margin: 0 auto 30px auto; }
         .asset-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         .asset-table th { background: #f1f3f5; text-align: left; padding: 12px; }
         .asset-table td { padding: 12px; border-bottom: 1px solid #eee; }
@@ -35,7 +35,7 @@
 </div>
 
 <div id="app-ui" class="container hidden">
-    <h1 style="text-align: center; color: var(--dark); margin-bottom: 5px;">資產配置比例</h1>
+    <h1 style="text-align: center; color: var(--dark); margin-bottom: 5px;">全資產比例分布</h1>
     <div class="chart-container"><canvas id="assetChart"></canvas></div>
     <div id="assets-content"></div>
     <div class="total-banner">
@@ -74,9 +74,7 @@
             document.getElementById('app-ui').classList.remove('hidden');
             renderTables();
             fetchPrices();
-        } else { 
-            alert("密碼錯誤！"); 
-        }
+        } else { alert("密碼錯誤！"); }
     }
 
     function renderTables() {
@@ -105,12 +103,10 @@
             const res = await fetch(CSV_URL);
             const text = await res.text();
             const rows = text.split('\n').map(r => r.split(',').map(cell => cell.replace(/["\r]/g, "").trim()));
-            
             const getP = (rowIndex) => {
                 let val = parseFloat(rows[rowIndex][2]);
                 return isNaN(val) ? 0 : val;
             };
-
             currentPrices['t2882'] = getP(0);
             currentPrices['t2458'] = getP(1);
             currentPrices['t2330'] = getP(2);
@@ -129,52 +125,68 @@
                 if(pElem) pElem.innerText = `$${currentPrices[a.id].toLocaleString()}`;
             });
             calculate();
-        } catch (e) {
-            console.error("報價讀取異常:", e);
-        }
+        } catch (e) { console.error(e); }
     }
 
     function calculate() {
         let grandTotal = 0;
+        let itemSubtotals = {}; // 紀錄每個細項的金額
         let catTotals = { "台股": 0, "美股": 0, "現金": 0 };
 
         myAssets.forEach(a => {
             const q = parseFloat(document.getElementById(`q-${a.id}`).value) || 0;
             const price = currentPrices[a.id] || 0;
             const sub = q * price;
-            const subElem = document.getElementById(`sub-${a.id}`);
-            if(subElem) subElem.innerText = `$${Math.round(sub).toLocaleString()}`;
+            
+            document.getElementById(`sub-${a.id}`).innerText = `$${Math.round(sub).toLocaleString()}`;
+            itemSubtotals[a.name] = sub; // 存入細項
             catTotals[a.type] += sub;
             grandTotal += sub;
         });
 
         ["台股", "美股", "現金"].forEach(type => {
-            const catElem = document.getElementById(`total-${type}`);
-            if(catElem) catElem.innerText = `$${Math.round(catTotals[type]).toLocaleString()}`;
+            document.getElementById(`total-${type}`).innerText = `$${Math.round(catTotals[type]).toLocaleString()}`;
         });
-
         document.getElementById('grand-total').innerText = `$ ${Math.round(grandTotal).toLocaleString()}`;
-        updateChart(catTotals);
+        
+        // 呼叫更新圓餅圖，傳入細項數據
+        updateChart(itemSubtotals);
     }
 
-    function updateChart(totals) {
+    function updateChart(dataMap) {
         const ctx = document.getElementById('assetChart').getContext('2d');
-        const data = {
-            labels: Object.keys(totals),
-            datasets: [{
-                data: Object.values(totals),
-                backgroundColor: ['#3498db', '#2ecc71', '#f1c40f'],
-                borderWidth: 0
-            }]
-        };
+        
+        // 過濾掉金額為 0 的項目，避免圖表太亂
+        const labels = Object.keys(dataMap).filter(key => dataMap[key] > 0);
+        const values = labels.map(key => dataMap[key]);
+
+        // 產生一組漂亮的多彩顏色
+        const colors = [
+            '#3498db', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6', 
+            '#1abc9c', '#34495e', '#d35400', '#27ae60', '#2980b9',
+            '#8e44ad', '#f39c12'
+        ];
+
         if (chartInstance) {
-            chartInstance.data = data;
+            chartInstance.data.labels = labels;
+            chartInstance.data.datasets[0].data = values;
             chartInstance.update();
         } else {
             chartInstance = new Chart(ctx, { 
                 type: 'pie', 
-                data: data,
-                options: { plugins: { legend: { position: 'bottom' } } }
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderWidth: 1
+                    }]
+                },
+                options: { 
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                    } 
+                }
             });
         }
     }
@@ -184,7 +196,7 @@
             const input = document.getElementById('q-' + a.id);
             if(input) localStorage.setItem('qty_' + a.id, input.value);
         });
-        alert("資料已儲存成功！");
+        alert("股數已紀錄成功！");
     }
 </script>
 </body>
