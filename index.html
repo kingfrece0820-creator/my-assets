@@ -30,7 +30,7 @@
     <div class="container">
         <h2>🔒 安全驗證</h2>
         <input type="password" id="pass" placeholder="輸入管理密碼" style="width: 200px; text-align: center; margin-bottom: 20px;"><br>
-        <button onclick="doLogin()">解除鎖定</button>
+        <button id="login-btn" onclick="doLogin()">解除鎖定</button>
     </div>
 </div>
 
@@ -61,19 +61,22 @@
         { name: "TSLL", type: "美股", id: "mTSLL" },
         { name: "CAVA", type: "美股", id: "mCAVA" },
         { name: "台幣現金", type: "現金", id: "cTWD" },
-        { name: "美金", type: "現金", id: "cUSD" } // 已改為美金
+        { name: "美金", type: "現金", id: "cUSD" }
     ];
 
     let currentPrices = {};
     let chartInstance = null;
 
     function doLogin() {
-        if(document.getElementById('pass').value === MY_PASS) {
+        const inputPass = document.getElementById('pass').value;
+        if(inputPass === MY_PASS) {
             document.getElementById('login-ui').classList.add('hidden');
             document.getElementById('app-ui').classList.remove('hidden');
             renderTables();
             fetchPrices();
-        } else { alert("密碼錯誤"); }
+        } else { 
+            alert("密碼錯誤！"); 
+        }
     }
 
     function renderTables() {
@@ -111,3 +114,78 @@
             currentPrices['t2882'] = getP(0);
             currentPrices['t2458'] = getP(1);
             currentPrices['t2330'] = getP(2);
+            currentPrices['t2303'] = getP(3);
+            currentPrices['t1517'] = getP(4);
+            currentPrices['t2201'] = getP(5);
+            currentPrices['mIBIT'] = getP(6);
+            currentPrices['mTSLA'] = getP(7);
+            currentPrices['mTSLL'] = getP(8);
+            currentPrices['mCAVA'] = getP(9);
+            currentPrices['cTWD'] = 1;
+            currentPrices['cUSD'] = getP(10) || 32;
+
+            myAssets.forEach(a => {
+                const pElem = document.getElementById(`p-${a.id}`);
+                if(pElem) pElem.innerText = `$${currentPrices[a.id].toLocaleString()}`;
+            });
+            calculate();
+        } catch (e) {
+            console.error("報價讀取異常:", e);
+        }
+    }
+
+    function calculate() {
+        let grandTotal = 0;
+        let catTotals = { "台股": 0, "美股": 0, "現金": 0 };
+
+        myAssets.forEach(a => {
+            const q = parseFloat(document.getElementById(`q-${a.id}`).value) || 0;
+            const price = currentPrices[a.id] || 0;
+            const sub = q * price;
+            const subElem = document.getElementById(`sub-${a.id}`);
+            if(subElem) subElem.innerText = `$${Math.round(sub).toLocaleString()}`;
+            catTotals[a.type] += sub;
+            grandTotal += sub;
+        });
+
+        ["台股", "美股", "現金"].forEach(type => {
+            const catElem = document.getElementById(`total-${type}`);
+            if(catElem) catElem.innerText = `$${Math.round(catTotals[type]).toLocaleString()}`;
+        });
+
+        document.getElementById('grand-total').innerText = `$ ${Math.round(grandTotal).toLocaleString()}`;
+        updateChart(catTotals);
+    }
+
+    function updateChart(totals) {
+        const ctx = document.getElementById('assetChart').getContext('2d');
+        const data = {
+            labels: Object.keys(totals),
+            datasets: [{
+                data: Object.values(totals),
+                backgroundColor: ['#3498db', '#2ecc71', '#f1c40f'],
+                borderWidth: 0
+            }]
+        };
+        if (chartInstance) {
+            chartInstance.data = data;
+            chartInstance.update();
+        } else {
+            chartInstance = new Chart(ctx, { 
+                type: 'pie', 
+                data: data,
+                options: { plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+    }
+
+    function saveData() {
+        myAssets.forEach(a => {
+            const input = document.getElementById('q-' + a.id);
+            if(input) localStorage.setItem('qty_' + a.id, input.value);
+        });
+        alert("資料已儲存成功！");
+    }
+</script>
+</body>
+</html>
