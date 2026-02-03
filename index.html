@@ -3,31 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>資產配置儀表板</title>
+    <title>個人資產配置儀表板</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --dark: #2c3e50; --blue: #3498db; --green: #2ecc71; --bg: #f8f9fa; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .container { max-width: 850px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
         .login-screen { text-align: center; padding-top: 100px; }
         h2 { color: var(--dark); border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 30px; }
-        
-        /* 圓餅圖容器 */
-        .chart-container { width: 100%; max-width: 400px; margin: 0 auto 30px auto; }
-
-        /* 表格樣式 */
-        .asset-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .asset-table th { background: #f1f3f5; text-align: left; padding: 10px; font-size: 14px; }
-        .asset-table td { padding: 12px 10px; border-bottom: 1px solid #eee; }
+        .chart-container { width: 100%; max-width: 350px; margin: 0 auto 30px auto; }
+        .asset-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        .asset-table th { background: #f1f3f5; text-align: left; padding: 12px; }
+        .asset-table td { padding: 12px; border-bottom: 1px solid #eee; }
         .cat-total { background: #fdfdfd; font-weight: bold; color: var(--blue); text-align: right; }
-        
-        input { width: 80px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; text-align: right; }
-        .subtotal { font-weight: bold; color: var(--dark); text-align: right; width: 100px; }
-        
-        .total-banner { background: var(--dark); color: white; padding: 20px; border-radius: 10px; text-align: center; margin-top: 30px; }
-        .total-val { font-size: 32px; font-weight: bold; color: var(--green); }
-        
-        button { width: 100%; padding: 15px; background: var(--blue); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 20px; }
+        input { width: 90%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; text-align: right; }
+        .subtotal { font-weight: bold; color: var(--dark); text-align: right; }
+        .total-banner { background: var(--dark); color: white; padding: 25px; border-radius: 10px; text-align: center; margin-top: 30px; }
+        .total-val { font-size: 36px; font-weight: bold; color: var(--green); }
+        button { width: 100%; padding: 15px; background: var(--blue); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 20px; font-weight: bold; }
         .hidden { display: none; }
     </style>
 </head>
@@ -36,26 +29,20 @@
 <div id="login-ui" class="login-screen">
     <div class="container">
         <h2>🔒 安全驗證</h2>
-        <input type="password" id="pass" placeholder="輸入密碼" style="width: 200px; text-align: center; margin-bottom: 20px;"><br>
-        <button onclick="doLogin()">進入資產儀表板</button>
+        <input type="password" id="pass" placeholder="輸入管理密碼" style="width: 200px; text-align: center; margin-bottom: 20px;"><br>
+        <button onclick="doLogin()">解除鎖定</button>
     </div>
 </div>
 
 <div id="app-ui" class="container hidden">
-    <h1 style="text-align: center; color: var(--dark);">資產配置比例</h1>
-    
-    <div class="chart-container">
-        <canvas id="assetChart"></canvas>
-    </div>
-
+    <h1 style="text-align: center; color: var(--dark); margin-bottom: 5px;">資產配置比例</h1>
+    <div class="chart-container"><canvas id="assetChart"></canvas></div>
     <div id="assets-content"></div>
-
     <div class="total-banner">
         <div>預估總資產 (TWD)</div>
         <div class="total-val" id="grand-total">$ 0</div>
     </div>
-
-    <button onclick="saveData()">💾 儲存股數並更新數據</button>
+    <button onclick="saveData()">💾 儲存持股並更新數據</button>
 </div>
 
 <script>
@@ -74,7 +61,7 @@
         { name: "TSLL", type: "美股", id: "mTSLL" },
         { name: "CAVA", type: "美股", id: "mCAVA" },
         { name: "台幣現金", type: "現金", id: "cTWD" },
-        { name: "外幣現金", type: "現金", id: "cUSD" }
+        { name: "美金", type: "現金", id: "cUSD" } // 已改為美金
     ];
 
     let currentPrices = {};
@@ -91,22 +78,20 @@
 
     function renderTables() {
         const content = document.getElementById('assets-content');
+        content.innerHTML = ''; 
         const types = ["台股", "美股", "現金"];
-        
         types.forEach(type => {
             let html = `<h2>${type}配置</h2><table class="asset-table">
-                        <thead><tr><th>資產名稱</th><th>單價</th><th>持倉數量</th><th style="text-align:right">個股總額</th></tr></thead><tbody>`;
-            
+                        <thead><tr><th>名稱</th><th>單價 (TWD)</th><th style="width:120px">持倉數量</th><th style="text-align:right">金額小計</th></tr></thead><tbody>`;
             myAssets.filter(a => a.type === type).forEach(a => {
                 const savedQty = localStorage.getItem('qty_' + a.id) || 0;
                 html += `<tr>
                             <td>${a.name}</td>
-                            <td class="price-tag" id="p-${a.id}" style="font-size:12px; color:#666">載入中...</td>
+                            <td id="p-${a.id}">載入中...</td>
                             <td><input type="number" id="q-${a.id}" value="${savedQty}" oninput="calculate()"></td>
                             <td class="subtotal" id="sub-${a.id}">$0</td>
                         </tr>`;
             });
-            
             html += `<tr><td colspan="3" class="cat-total">${type}小計</td><td class="cat-total" id="total-${type}">$0</td></tr></tbody></table>`;
             content.innerHTML += html;
         });
@@ -116,78 +101,13 @@
         try {
             const res = await fetch(CSV_URL);
             const text = await res.text();
-            const rows = text.split('\n').map(r => r.split(','));
+            const rows = text.split('\n').map(r => r.split(',').map(cell => cell.replace(/["\r]/g, "").trim()));
             
-            currentPrices['t2882'] = parseFloat(rows[1][2]);
-            currentPrices['t2458'] = parseFloat(rows[2][2]);
-            currentPrices['t2330'] = parseFloat(rows[3][2]);
-            currentPrices['t2303'] = parseFloat(rows[4][2]);
-            currentPrices['t1517'] = parseFloat(rows[5][2]);
-            currentPrices['t2201'] = parseFloat(rows[6][2]);
-            currentPrices['mIBIT'] = parseFloat(rows[7][2]);
-            currentPrices['mTSLA'] = parseFloat(rows[8][2]);
-            currentPrices['mTSLL'] = parseFloat(rows[9][2]);
-            currentPrices['mCAVA'] = parseFloat(rows[10][2]);
-            currentPrices['cTWD'] = 1;
-            currentPrices['cUSD'] = parseFloat(rows[11][2]) || 32;
+            const getP = (rowIndex) => {
+                let val = parseFloat(rows[rowIndex][2]);
+                return isNaN(val) ? 0 : val;
+            };
 
-            myAssets.forEach(a => {
-                document.getElementById(`p-${a.id}`).innerText = `$${currentPrices[a.id].toLocaleString()}`;
-            });
-            calculate();
-        } catch (e) { console.error("價格更新失敗"); }
-    }
-
-    function calculate() {
-        let grandTotal = 0;
-        let catTotals = { "台股": 0, "美股": 0, "現金": 0 };
-
-        myAssets.forEach(a => {
-            const q = parseFloat(document.getElementById(`q-${a.id}`).value) || 0;
-            const price = currentPrices[a.id] || 0;
-            const sub = q * price;
-            
-            document.getElementById(`sub-${a.id}`).innerText = `$${Math.round(sub).toLocaleString()}`;
-            catTotals[a.type] += sub;
-            grandTotal += sub;
-        });
-
-        // 更新各類別小計
-        for (let type in catTotals) {
-            document.getElementById(`total-${type}`).innerText = `$${Math.round(catTotals[type]).toLocaleString()}`;
-        }
-
-        document.getElementById('grand-total').innerText = `$ ${Math.round(grandTotal).toLocaleString()}`;
-        updateChart(catTotals);
-    }
-
-    function updateChart(totals) {
-        const ctx = document.getElementById('assetChart').getContext('2d');
-        const data = {
-            labels: Object.keys(totals),
-            datasets: [{
-                data: Object.values(totals),
-                backgroundColor: ['#3498db', '#2ecc71', '#f1c40f'],
-                hoverOffset: 4
-            }]
-        };
-
-        if (chartInstance) {
-            chartInstance.data = data;
-            chartInstance.update();
-        } else {
-            chartInstance = new Chart(ctx, { type: 'pie', data: data });
-        }
-    }
-
-    function saveData() {
-        myAssets.forEach(a => {
-            localStorage.setItem('qty_' + a.id, document.getElementById(`q-${a.id}`).value);
-        });
-        alert("股數已儲存並更新！");
-    }
-</script>
-</body>
-
-</html>
-
+            currentPrices['t2882'] = getP(0);
+            currentPrices['t2458'] = getP(1);
+            currentPrices['t2330'] = getP(2);
