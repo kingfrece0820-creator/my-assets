@@ -12,11 +12,11 @@
         .container { max-width: 850px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         .login-screen { text-align: center; padding-top: 100px; }
         h2 { color: var(--dark); border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 30px; }
-        .chart-container { width: 100%; max-width: 550px; margin: 0 auto 30px auto; min-height: 400px; }
+        /* 增加圖表容器的空間 */
+        .chart-container { width: 100%; max-width: 700px; margin: 0 auto 30px auto; min-height: 500px; }
         .asset-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         .asset-table th { background: #f1f3f5; text-align: left; padding: 12px; }
         .asset-table td { padding: 12px; border-bottom: 1px solid #eee; }
-        .cat-total { background: #fdfdfd; font-weight: bold; color: var(--blue); text-align: right; }
         input { width: 90%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; text-align: right; }
         .total-banner { background: var(--dark); color: white; padding: 25px; border-radius: 10px; text-align: center; margin-top: 30px; }
         .total-val { font-size: 32px; font-weight: bold; color: var(--green); }
@@ -67,39 +67,27 @@
     let currentPrices = {};
     let chartInstance = null;
 
-    // 註冊外掛
-    if (typeof ChartDataLabels !== 'undefined') {
-        Chart.register(ChartDataLabels);
-    }
+    Chart.register(ChartDataLabels);
 
     function doLogin() {
-        const passVal = document.getElementById('pass').value;
-        if (passVal === MY_PASS) {
+        if (document.getElementById('pass').value === MY_PASS) {
             document.getElementById('login-ui').classList.add('hidden');
             document.getElementById('app-ui').classList.remove('hidden');
             renderTables();
             fetchPrices();
-        } else {
-            alert("密碼錯誤！");
-        }
+        } else { alert("密碼錯誤！"); }
     }
 
     function renderTables() {
         const content = document.getElementById('assets-content');
         content.innerHTML = ''; 
         ["台股", "美股", "現金"].forEach(type => {
-            let html = `<h2>${type}配置</h2><table class="asset-table">
-                        <thead><tr><th>名稱</th><th>單價</th><th>持倉</th><th style="text-align:right">小計</th></tr></thead><tbody>`;
+            let html = `<h2>${type}配置</h2><table class="asset-table"><thead><tr><th>名稱</th><th>單價</th><th>持倉</th><th style="text-align:right">小計</th></tr></thead><tbody>`;
             myAssets.filter(a => a.type === type).forEach(a => {
                 const savedQty = localStorage.getItem('qty_' + a.id) || 0;
-                html += `<tr>
-                            <td>${a.name}</td>
-                            <td id="p-${a.id}">...</td>
-                            <td><input type="number" id="q-${a.id}" value="${savedQty}" oninput="calculate()"></td>
-                            <td id="sub-${a.id}" style="text-align:right; font-weight:bold;">$0</td>
-                        </tr>`;
+                html += `<tr><td>${a.name}</td><td id="p-${a.id}">...</td><td><input type="number" id="q-${a.id}" value="${savedQty}" oninput="calculate()"></td><td id="sub-${a.id}" style="text-align:right; font-weight:bold;">$0</td></tr>`;
             });
-            html += `<tr><td colspan="3" style="text-align:right; font-weight:bold;">${type}小計</td><td id="total-${type}" style="text-align:right; font-weight:bold; color:var(--blue);">$0</td></tr></tbody></table>`;
+            html += `<tr><td colspan="3" style="text-align:right; font-weight:bold;">小計</td><td id="total-${type}" style="text-align:right; font-weight:bold; color:var(--blue);">$0</td></tr></tbody></table>`;
             content.innerHTML += html;
         });
     }
@@ -110,40 +98,26 @@
             const text = await res.text();
             const rows = text.split('\n').map(r => r.split(',').map(cell => cell.replace(/["\r]/g, "").trim()));
             const getP = (i) => { let v = parseFloat(rows[i][2]); return isNaN(v) ? 0 : v; };
-
             currentPrices['t2882'] = getP(0); currentPrices['t2458'] = getP(1);
             currentPrices['t2330'] = getP(2); currentPrices['t2303'] = getP(3);
             currentPrices['t1517'] = getP(4); currentPrices['t2201'] = getP(5);
             currentPrices['mIBIT'] = getP(6); currentPrices['mTSLA'] = getP(7);
             currentPrices['mTSLL'] = getP(8); currentPrices['mCAVA'] = getP(9);
             currentPrices['cTWD'] = 1; currentPrices['cUSD'] = getP(10) || 32;
-
-            myAssets.forEach(a => {
-                const el = document.getElementById(`p-${a.id}`);
-                if (el) el.innerText = `$${currentPrices[a.id].toLocaleString()}`;
-            });
+            myAssets.forEach(a => { const el = document.getElementById(`p-${a.id}`); if (el) el.innerText = `$${currentPrices[a.id].toLocaleString()}`; });
             calculate();
-        } catch (e) { console.error("價格載入失敗", e); }
+        } catch (e) { console.error(e); }
     }
 
     function calculate() {
         let grandTotal = 0;
         let itemData = {};
-        let catTotals = { "台股": 0, "美股": 0, "現金": 0 };
-
         myAssets.forEach(a => {
             const qty = parseFloat(document.getElementById(`q-${a.id}`).value) || 0;
             const sub = qty * (currentPrices[a.id] || 0);
-            const subEl = document.getElementById(`sub-${a.id}`);
-            if (subEl) subEl.innerText = `$${Math.round(sub).toLocaleString()}`;
+            if (document.getElementById(`sub-${a.id}`)) document.getElementById(`sub-${a.id}`).innerText = `$${Math.round(sub).toLocaleString()}`;
             if (sub > 0) itemData[a.name] = sub;
-            catTotals[a.type] += sub;
             grandTotal += sub;
-        });
-
-        ["台股", "美股", "現金"].forEach(t => {
-            const el = document.getElementById(`total-${t}`);
-            if (el) el.innerText = `$${Math.round(catTotals[t]).toLocaleString()}`;
         });
         document.getElementById('grand-total').innerText = `$ ${Math.round(grandTotal).toLocaleString()}`;
         updateChart(itemData, grandTotal);
@@ -153,7 +127,8 @@
         const ctx = document.getElementById('assetChart').getContext('2d');
         const labels = Object.keys(dataMap);
         const values = Object.values(dataMap);
-        const colors = ['#3498db', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6', '#1abc9c', '#34495e', '#d35400', '#27ae60', '#2980b9', '#8e44ad', '#f39c12'];
+        // 增加顏色清單
+        const colors = ['#3498db', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6', '#1abc9c', '#34495e', '#d35400', '#27ae60', '#2980b9', '#8e44ad', '#f39c12', '#7f8c8d'];
 
         if (chartInstance) chartInstance.destroy();
 
@@ -163,20 +138,24 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: { padding: 60 },
+                layout: { padding: 80 }, // 外部邊距給予標籤空間
                 plugins: {
-                    legend: { display: false },
+                    legend: { display: false }, // 關閉圖例
                     datalabels: {
                         color: '#2c3e50',
-                        anchor: 'end',
-                        align: 'end',
-                        offset: 15,
+                        anchor: 'end', // 標籤錨點在扇區末端
+                        align: 'end',  // 標籤顯示在錨點外部
+                        offset: 20,    // 標籤與圓餅圖的距離
+                        display: 'auto', // 自動隱藏重疊標籤
                         formatter: (val, ctx) => {
-                            const lbl = ctx.chart.data.labels[ctx.dataIndex];
-                            const pct = (val / totalSum * 100).toFixed(1) + '%';
-                            return lbl + '\n' + pct;
+                            const pct = (val / totalSum * 100).toFixed(1);
+                            // 隱藏佔比過小的標籤 (小於 1%)
+                            if (pct < 1) return null;
+                            const label = ctx.chart.data.labels[ctx.dataIndex];
+                            return `${label}\n${pct}%`;
                         },
-                        font: { weight: 'bold', size: 12 }
+                        font: { weight: 'bold', size: 12 },
+                        textAlign: 'center'
                     }
                 }
             }
@@ -184,10 +163,7 @@
     }
 
     function saveData() {
-        myAssets.forEach(a => {
-            const input = document.getElementById('q-' + a.id);
-            if (input) localStorage.setItem('qty_' + a.id, input.value);
-        });
+        myAssets.forEach(a => { const input = document.getElementById('q-' + a.id); if (input) localStorage.setItem('qty_' + a.id, input.value); });
         alert("資料已儲存！");
     }
 </script>
