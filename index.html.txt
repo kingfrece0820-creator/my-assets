@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>私人資產監控</title>
+    <style>
+        :root { --blue: #3498db; --green: #2ecc71; --dark: #2c3e50; }
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 15px; }
+        .card { background: white; max-width: 600px; margin: auto; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .login-box { text-align: center; margin-top: 100px; }
+        h2 { color: var(--dark); border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .section-title { font-size: 14px; color: #7f8c8d; margin-top: 20px; font-weight: bold; }
+        .asset-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f9f9f9; }
+        .asset-name { font-weight: 500; width: 80px; }
+        .price-tag { font-size: 12px; color: #95a5a6; }
+        input { border: 1px solid #ddd; padding: 8px; border-radius: 6px; width: 100px; text-align: right; font-size: 14px; }
+        .total-banner { background: var(--dark); color: white; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0; }
+        .total-val { font-size: 28px; font-weight: bold; color: var(--green); }
+        button { width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; transition: 0.3s; margin-top: 10px; }
+        .btn-save { background: var(--blue); color: white; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="login-ui" class="card login-box">
+    <h2>🔒 安全驗證</h2>
+    <input type="password" id="pass" placeholder="輸入密碼" style="width: 80%; text-align: center; margin-bottom: 15px;">
+    <button class="btn-save" onclick="doLogin()">解除鎖定</button>
+</div>
+
+<div id="app-ui" class="card hidden">
+    <h2>資產即時總覽</h2>
+    <div id="assets-list"></div>
+    
+    <div class="total-banner">
+        <div>總資產預估 (TWD)</div>
+        <div class="total-val" id="grand-total">更新中...</div>
+    </div>
+
+    <button class="btn-save" onclick="saveData()">💾 儲存並記憶股數</button>
+</div>
+
+<script>
+    const MY_PASS = "xup654q/6";
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTZATsFR0j9xlCjPMecKxoujbUen5-ofgaT_iS7YqOgB7IIeb_cOtGFWI85vmGT0EWe09SxbpRLXKw6/pub?gid=802262809&single=true&output=csv";
+    
+    // 根據你的截圖定義資產清單
+    const myAssets = [
+        { name: "國泰金", type: "台股", id: "t2882" },
+        { name: "義隆", type: "台股", id: "t2458" },
+        { name: "台積電", type: "台股", id: "t2330" },
+        { name: "聯電", type: "台股", id: "t2303" },
+        { name: "利奇", type: "台股", id: "t1517" },
+        { name: "裕隆", type: "台股", id: "t2201" },
+        { name: "IBIT", type: "美股", id: "mIBIT" },
+        { name: "TSLA", type: "美股", id: "mTSLA" },
+        { name: "TSLL", type: "美股", id: "mTSLL" },
+        { name: "CAVA", type: "美股", id: "mCAVA" },
+        { name: "台幣現金", type: "現金", id: "cTWD" },
+        { name: "外幣現金", type: "現金", id: "cUSD" }
+    ];
+
+    let currentPrices = {};
+
+    function doLogin() {
+        if(document.getElementById('pass').value === MY_PASS) {
+            document.getElementById('login-ui').classList.add('hidden');
+            document.getElementById('app-ui').classList.remove('hidden');
+            renderAssets();
+            fetchPrices();
+        } else { alert("密碼錯誤"); }
+    }
+
+    function renderAssets() {
+        const list = document.getElementById('assets-list');
+        let currentType = "";
+        myAssets.forEach(a => {
+            if(a.type !== currentType) {
+                list.innerHTML += `<div class="section-title">${a.type}</div>`;
+                currentType = a.type;
+            }
+            const savedQty = localStorage.getItem('qty_' + a.id) || 0;
+            list.innerHTML += `
+                <div class="asset-item">
+                    <div>
+                        <div class="asset-name">${a.name}</div>
+                        <div class="price-tag" id="p-${a.id}">載入價格中...</div>
+                    </div>
+                    <input type="number" id="q-${a.id}" value="${savedQty}" oninput="calculate()">
+                </div>`;
+        });
+    }
+
+    async function fetchPrices() {
+        try {
+            const res = await fetch(CSV_URL);
+            const text = await res.text();
+            const rows = text.split('\n').map(r => r.split(','));
+            
+            // 對應試算表位置 (根據第一步建立的 API 表)
+            currentPrices['t2882'] = parseFloat(rows[1][2]);
+            currentPrices['t2458'] = parseFloat(rows[2][2]);
+            currentPrices['t2330'] = parseFloat(rows[3][2]);
+            currentPrices['t2303'] = parseFloat(rows[4][2]);
+            currentPrices['t1517'] = parseFloat(rows[5][2]);
+            currentPrices['t2201'] = parseFloat(rows[6][2]);
+            currentPrices['mIBIT'] = parseFloat(rows[7][2]);
+            currentPrices['mTSLA'] = parseFloat(rows[8][2]);
+            currentPrices['mTSLL'] = parseFloat(rows[9][2]);
+            currentPrices['mCAVA'] = parseFloat(rows[10][2]);
+            currentPrices['cTWD'] = 1;
+            currentPrices['cUSD'] = parseFloat(rows[11][2]) || 32;
+
+            myAssets.forEach(a => {
+                document.getElementById(`p-${a.id}`).innerText = `單價: $${currentPrices[a.id].toLocaleString()}`;
+            });
+            calculate();
+        } catch (e) {
+            console.error("抓取失敗", e);
+            document.getElementById('grand-total').innerText = "連線失敗";
+        }
+    }
+
+    function calculate() {
+        let total = 0;
+        myAssets.forEach(a => {
+            const q = parseFloat(document.getElementById(`q-${a.id}`).value) || 0;
+            total += q * (currentPrices[a.id] || 0);
+        });
+        document.getElementById('grand-total').innerText = `$ ${Math.round(total).toLocaleString()}`;
+    }
+
+    function saveData() {
+        myAssets.forEach(a => {
+            localStorage.setItem('qty_' + a.id, document.getElementById(`q-${a.id}`).value);
+        });
+        alert("股數已永久儲存於此瀏覽器！");
+    }
+</script>
+</body>
+</html>
